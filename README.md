@@ -3,7 +3,7 @@
 </h1>
 
 <p align="center">
-  Multiwfn 驱动的计算化学波函数分析与 Nature 风格可视化 Codex Skill 集合
+  Multiwfn 驱动的计算化学波函数分析与可视化 Codex Skill 集合
 </p>
 
 <p align="center">
@@ -21,8 +21,6 @@
 </p>
 
 MulTiwFn 是一个面向计算化学工作流的 Codex skill 仓库。它让 Codex 可以从本机自动发现波函数文件、结构文件和可视化程序，调用 Multiwfn 生成 cube 数据，再用 VMD/Tachyon 或 ChimeraX 渲染适合论文展示的分子图像。
-
-当前重点是两个最常用的波函数分析任务：ESP 静电势表面，以及 HOMO/LUMO 等分子轨道的正视图与侧视图。
 
 ## 安装
 
@@ -71,7 +69,7 @@ python3 orb-visualize-skill/scripts/mo_pipeline.py \
 
 ### VMD 安装方式
 
-VMD 是当前默认推荐的渲染后端，用于调用 Tachyon 输出白底、正交投影、带光照的 MO/ESP 图片。
+VMD 是当前默认的渲染后端，用于调用 Tachyon 输出白底、正交投影、带光照的 MO/ESP 图片。
 
 1. 从 VMD 官方下载页选择适合系统的版本：<https://www.ks.uiuc.edu/Development/Download/download.cgi?PackageName=VMD>
 2. macOS 用户通常把 `.app` 放入 `/Applications`。
@@ -201,4 +199,4 @@ python3 esp-surface-skill/scripts/esp_pipeline.py \
 - MO 相位本身是任意的，同一轨道的正负颜色互换不改变物理含义。
 - 使用 `HOMO`、`LUMO`、`HOMO-1`、`LUMO+1` 时，v1 不会自动猜 HOMO 编号，必须由用户提供 `--homo N`。
 - Multiwfn 菜单 recipe 可能随版本变化；如果真实体系失败，应保留 log 和 recipe，用当前 Multiwfn 版本校准后再更新 skill。
-- ChimeraX 的 offscreen 渲染在不同 macOS/OpenGL 环境下可能表现不同；无人值守生成图像时优先使用 VMD/Tachyon。
+- ChimeraX 的 offscreen 渲染在不同 macOS/OpenGL 环境下可能表现不同；优先使用 VMD/Tachyon。
