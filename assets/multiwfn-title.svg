@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1050" height="180" viewBox="0 0 1050 180" role="img" aria-labelledby="title desc">
+  <title id="title">MulTiwFn Skill</title>
+  <desc id="desc">MulTiwFn Skill title with M, T, and F colored in transgender flag colors.</desc>
+  <defs>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#111827" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="1050" height="180" fill="none"/>
+  <g filter="url(#soft-shadow)" font-family="Avenir Next, Inter, Helvetica Neue, Arial, sans-serif" font-size="112" font-weight="800" letter-spacing="0">
+    <text x="40" y="126">
+      <tspan fill="#5BCEFA">M</tspan><tspan fill="#1F2937">ul</tspan><tspan fill="#F5A9B8">T</tspan><tspan fill="#1F2937">iw</tspan><tspan fill="#FFFFFF" stroke="#5BCEFA" stroke-width="3" paint-order="stroke fill">F</tspan><tspan fill="#1F2937">n</tspan>
+    </text>
+  </g>
+  <g filter="url(#soft-shadow)" font-family="Avenir Next, Inter, Helvetica Neue, Arial, sans-serif" font-size="70" font-weight="700" letter-spacing="0">
+    <text x="630" y="124" fill="#1F2937">Skill</text>
+  </g>
+  <g transform="translate(850 54)">
+    <rect x="0" y="0" width="176" height="14" rx="7" fill="#5BCEFA"/>
+    <rect x="0" y="18" width="176" height="14" rx="7" fill="#F5A9B8"/>
+    <rect x="0" y="36" width="176" height="14" rx="7" fill="#FFFFFF" stroke="#E5E7EB"/>
+    <rect x="0" y="54" width="176" height="14" rx="7" fill="#F5A9B8"/>
+    <rect x="0" y="72" width="176" height="14" rx="7" fill="#5BCEFA"/>
+  </g>
+</svg>
