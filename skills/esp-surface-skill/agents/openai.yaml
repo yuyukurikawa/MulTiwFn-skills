@@ -1,0 +1,4 @@
+interface:
+  display_name: "ESP Surface Analysis"
+  short_description: "Generate ESP surface figures with Multiwfn"
+  default_prompt: "Use $esp-surface-analysis to generate a publication-style ESP surface figure from local wavefunction files."

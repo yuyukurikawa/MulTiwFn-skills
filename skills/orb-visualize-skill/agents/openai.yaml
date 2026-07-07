@@ -1,0 +1,4 @@
+interface:
+  display_name: "Molecular Orbital Visualization"
+  short_description: "Render MO front and side views"
+  default_prompt: "Use $molecular-orbital-visualization to render HOMO and LUMO front/side views from local wavefunction files."
