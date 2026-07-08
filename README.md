@@ -7,6 +7,7 @@
 </p>
 
 <p align="center">
+  <a href="README.en.md">English README</a> ·
   <a href="#安装">安装</a> ·
   <a href="#技能索引">技能索引</a> ·
   <a href="#快速使用">快速使用</a> ·
