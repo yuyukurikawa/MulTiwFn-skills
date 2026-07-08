@@ -1,4 +1,0 @@
-interface:
-  display_name: "Input Skill"
-  short_description: "Generate Gaussian/ORCA inputs from SMILES"
-  default_prompt: "Use $input-skill to generate Gaussian and ORCA input files from a SMILES string."
