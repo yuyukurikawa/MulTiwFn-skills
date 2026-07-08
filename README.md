@@ -118,6 +118,7 @@ python3 esp-surface-skill/scripts/esp_pipeline.py \
 
 | Skill | 触发方式 | 适合任务 | 主要输出 |
 | --- | --- | --- | --- |
+| `input-skill` | SMILES、Gaussian input、ORCA input、`--smiles` | 从 SMILES 生成 3D 结构，并基于精选 benchmark 文献库推荐方法/基组，输出 Gaussian 和 ORCA 输入文件 | `structure.xyz`、`<name>.gjf`、`<name>.inp`、`recommendation.md`、`manifest.json` |
 | `esp-surface-analysis` | `--ESP`、ESP、MEP、静电势表面 | 从 `.fchk`、`.molden`、`.wfn`、`.wfx`、cube 等文件生成 ESP 着色分子表面 | `density.cub`、`totesp.cub`、渲染脚本、`esp_vmd.png` 或 ChimeraX PNG、`manifest.json` |
 | `molecular-orbital-visualization` | `--MO`、HOMO、LUMO、分子轨道、MO cube | 生成指定轨道的 cube，并交付每个轨道的正视图和侧视图 | `<orbital>.cub`、`<orbital>_front.png`、`<orbital>_side.png`、渲染脚本、`summary.md`、`manifest.json` |
 
@@ -176,16 +177,22 @@ python3 esp-surface-skill/scripts/esp_pipeline.py \
 ├── README.md
 ├── assets/
 │   └── multiwfn-title.svg
-├── esp-surface-skill/
-│   ├── SKILL.md
-│   ├── agents/
-│   ├── references/
-│   └── scripts/esp_pipeline.py
-└── orb-visualize-skill/
-    ├── SKILL.md
-    ├── agents/
-    ├── references/
-    └── scripts/mo_pipeline.py
+└── skills/
+    ├── input-skill/
+    │   ├── SKILL.md
+    │   ├── agents/
+    │   ├── references/benchmark-library.yml
+    │   └── scripts/input_pipeline.py
+    ├── esp-surface-skill/
+    │   ├── SKILL.md
+    │   ├── agents/
+    │   ├── references/
+    │   └── scripts/esp_pipeline.py
+    └── orb-visualize-skill/
+        ├── SKILL.md
+        ├── agents/
+        ├── references/
+        └── scripts/mo_pipeline.py
 ```
 
 ## 输出与复现
