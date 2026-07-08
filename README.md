@@ -200,3 +200,6 @@ python3 esp-surface-skill/scripts/esp_pipeline.py \
 - 使用 `HOMO`、`LUMO`、`HOMO-1`、`LUMO+1` 时，v1 不会自动猜 HOMO 编号，必须由用户提供 `--homo N`。
 - Multiwfn 菜单 recipe 可能随版本变化；如果真实体系失败，应保留 log 和 recipe，用当前 Multiwfn 版本校准后再更新 skill。
 - ChimeraX 的 offscreen 渲染在不同 macOS/OpenGL 环境下可能表现不同；优先使用 VMD/Tachyon。
+- 如果 Multiwfn 被用于你的研究，正文中至少必须引用以下论文：
+• Tian Lu, Feiwu Chen, Multiwfn: A Multifunctional Wavefunction Analyzer, J. Comput. Chem. 33, 580-592 (2012) DOI: 10.1002/jcc.22885
+• Tian Lu, A comprehensive electron wavefunction analysis toolbox for chemists, Multiwfn, J. Chem. Phys., 161, 082503 (2024) DOI: 10.1063/5.0216272
