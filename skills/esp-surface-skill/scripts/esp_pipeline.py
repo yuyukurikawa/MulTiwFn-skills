@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import struct
 import subprocess
@@ -31,6 +32,27 @@ CUBE_EXTS = {".cube", ".cub"}
 STRUCTURE_EXTS = {".xyz", ".mol", ".sdf", ".pdb", ".mol2"}
 ESP_KEYS = ("esp", "mep", "electrostatic", "potential")
 DENSITY_KEYS = ("density", "dens", "rho", "electron")
+DEFAULT_NEGATIVE_COLOR = "#5BCEFA"
+DEFAULT_POSITIVE_COLOR = "#F5A9B8"
+DEFAULT_NEUTRAL_COLOR = "#FFFFFF"
+COLOR_ALIASES = {
+    "black": "#000000",
+    "blue": "#0000FF",
+    "cyan": "#00FFFF",
+    "green": "#008000",
+    "grey": "#808080",
+    "gray": "#808080",
+    "orange": "#FFA500",
+    "pink": "#FFC0CB",
+    "purple": "#800080",
+    "red": "#FF0000",
+    "trans-blue": DEFAULT_NEGATIVE_COLOR,
+    "trans-pink": DEFAULT_POSITIVE_COLOR,
+    "transgender-blue": DEFAULT_NEGATIVE_COLOR,
+    "transgender-pink": DEFAULT_POSITIVE_COLOR,
+    "white": "#FFFFFF",
+    "yellow": "#FFFF00",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -54,6 +76,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--recipe", help="Custom Multiwfn stdin recipe.")
     parser.add_argument("--density-isovalue", default="0.001", help="Density isosurface value.")
     parser.add_argument("--esp-range", default="-0.05,0.05", help="ESP color range in a.u.")
+    parser.add_argument(
+        "--negative-color",
+        default=DEFAULT_NEGATIVE_COLOR,
+        help="Color for negative-valued ESP regions. Accepts #RRGGBB, R,G,B, or a common color name.",
+    )
+    parser.add_argument(
+        "--positive-color",
+        default=DEFAULT_POSITIVE_COLOR,
+        help="Color for positive-valued ESP regions. Accepts #RRGGBB, R,G,B, or a common color name.",
+    )
     parser.add_argument("--width", type=int, default=2400)
     parser.add_argument("--height", type=int, default=1800)
     parser.add_argument("--timeout", type=int, default=1800)
@@ -275,6 +307,46 @@ def write_text(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def parse_color(value: str) -> tuple[float, float, float]:
+    raw = value.strip()
+    named = COLOR_ALIASES.get(raw.lower())
+    if named:
+        raw = named
+    if re.fullmatch(r"#?[0-9A-Fa-f]{6}", raw):
+        hex_value = raw[1:] if raw.startswith("#") else raw
+        return tuple(int(hex_value[i : i + 2], 16) / 255 for i in (0, 2, 4))
+    parts = [part.strip() for part in raw.split(",")]
+    if len(parts) == 3:
+        channels = [float(part) for part in parts]
+        if any(channel < 0 for channel in channels):
+            raise ValueError(f"Color channels must be non-negative: {value}")
+        if any(channel > 1 for channel in channels):
+            if any(channel > 255 for channel in channels):
+                raise ValueError(f"RGB color channels must be <= 255: {value}")
+            channels = [channel / 255 for channel in channels]
+        return tuple(channels)
+    raise ValueError(f"Unsupported color value: {value}")
+
+
+def rgb_to_hex(rgb: tuple[float, float, float]) -> str:
+    return "#" + "".join(f"{round(channel * 255):02X}" for channel in rgb)
+
+
+def format_rgb(rgb: tuple[float, float, float]) -> str:
+    return " ".join(f"{channel:.3f}" for channel in rgb)
+
+
+def render_colors(args: argparse.Namespace) -> dict:
+    negative = parse_color(args.negative_color)
+    positive = parse_color(args.positive_color)
+    neutral = parse_color(DEFAULT_NEUTRAL_COLOR)
+    return {
+        "negative": {"input": args.negative_color, "hex": rgb_to_hex(negative), "rgb": negative},
+        "neutral": {"input": DEFAULT_NEUTRAL_COLOR, "hex": DEFAULT_NEUTRAL_COLOR, "rgb": neutral},
+        "positive": {"input": args.positive_color, "hex": rgb_to_hex(positive), "rgb": positive},
+    }
+
+
 def default_multiwfn_recipe(outdir: Path) -> Path:
     recipe = outdir / "multiwfn_esp.inp"
     write_text(
@@ -414,6 +486,8 @@ def write_chimerax_script(args: argparse.Namespace, selected: dict, outdir: Path
     esp = selected.get("esp_cube")
     output = outdir / "esp_chimerax.png"
     script = outdir / "render_chimerax.cxc"
+    colors = render_colors(args)
+    palette = f"{colors['negative']['hex']}:white:{colors['positive']['hex']}"
     model_index = 1
     structure_model = None
     density_model = None
@@ -440,7 +514,7 @@ def write_chimerax_script(args: argparse.Namespace, selected: dict, outdir: Path
     lines.extend(
         [
             f"volume {density_model} style surface level {args.density_isovalue} color white transparency 15",
-            f"color sample {density_model} map {esp_model} palette blue:white:red range {esp_min},{esp_max}",
+            f"color sample {density_model} map {esp_model} palette {palette} range {esp_min},{esp_max}",
             "hide atoms",
             f"show {atom_model} atoms",
             f"style {atom_model} ball",
@@ -453,6 +527,39 @@ def write_chimerax_script(args: argparse.Namespace, selected: dict, outdir: Path
     return script
 
 
+def vmd_diverging_scale_lines(colors: dict) -> list[str]:
+    neg = format_rgb(tuple(colors["negative"]["rgb"])).split()
+    mid = format_rgb(tuple(colors["neutral"]["rgb"])).split()
+    pos = format_rgb(tuple(colors["positive"]["rgb"])).split()
+    return [
+        "proc mwfn_lerp {a b t} {expr {$a + ($b - $a) * $t}}",
+        "proc mwfn_apply_diverging_scale {} {",
+        "  set color_start [colorinfo num]",
+        "  display update off",
+        "  for {set i 0} {$i < 1024} {incr i} {",
+        "    if {$i < 512} {",
+        "      set t [expr {$i / 511.0}]",
+        f"      set r [mwfn_lerp {neg[0]} {mid[0]} $t]",
+        f"      set g [mwfn_lerp {neg[1]} {mid[1]} $t]",
+        f"      set b [mwfn_lerp {neg[2]} {mid[2]} $t]",
+        "    } else {",
+        "      set t [expr {($i - 512) / 511.0}]",
+        f"      set r [mwfn_lerp {mid[0]} {pos[0]} $t]",
+        f"      set g [mwfn_lerp {mid[1]} {pos[1]} $t]",
+        f"      set b [mwfn_lerp {mid[2]} {pos[2]} $t]",
+        "    }",
+        "    color change rgb [expr {$i + $color_start}] $r $g $b",
+        "  }",
+        "  display update on",
+        "}",
+        "color scale method RGB",
+        "color scale midpoint 0.5",
+        "color scale min 0.0",
+        "color scale max 1.0",
+        "mwfn_apply_diverging_scale",
+    ]
+
+
 def write_vmd_script(args: argparse.Namespace, selected: dict, outdir: Path, tools: dict) -> tuple[Path, Path, Path, Path | None]:
     esp_min, esp_max = parse_range(args.esp_range)
     structure = selected.get("structure") or selected.get("density_cube") or selected.get("esp_cube")
@@ -462,6 +569,7 @@ def write_vmd_script(args: argparse.Namespace, selected: dict, outdir: Path, too
     output = outdir / "esp_vmd.tga"
     png = outdir / "esp_vmd.png"
     script = outdir / "render_vmd.tcl"
+    colors = render_colors(args)
     lines = [
         "display projection Orthographic",
         "display depthcue off",
@@ -469,9 +577,8 @@ def write_vmd_script(args: argparse.Namespace, selected: dict, outdir: Path, too
         "color Display Background white",
         "display ambientocclusion on",
         "display shadows on",
-        "color scale method BWR",
-        "color scale midpoint 0.5",
     ]
+    lines.extend(vmd_diverging_scale_lines(colors))
     if structure:
         lines.append(f"mol new {{{structure}}}")
     if density:
@@ -614,7 +721,12 @@ def as_jsonable(value):
 
 
 def main() -> int:
-    args = parse_args()
+    try:
+        args = parse_args()
+        colors = render_colors(args)
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     if not args.ESP:
         print("This pipeline requires --ESP.", file=sys.stderr)
         return 2
@@ -661,6 +773,7 @@ def main() -> int:
             "renderer": args.renderer,
             "density_isovalue": args.density_isovalue,
             "esp_range": args.esp_range,
+            "colors": colors,
             "width": args.width,
             "height": args.height,
         },
@@ -676,3 +789,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
