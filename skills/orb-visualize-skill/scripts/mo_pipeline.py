@@ -30,6 +30,26 @@ WAVEFUNCTION_EXTS = {
 CUBE_EXTS = {".cube", ".cub"}
 STRUCTURE_EXTS = {".xyz", ".mol", ".sdf", ".pdb", ".mol2"}
 ORBITAL_KEYS = ("orb", "orbital", "mo", "homo", "lumo")
+DEFAULT_NEGATIVE_COLOR = "#5BCEFA"
+DEFAULT_POSITIVE_COLOR = "#F5A9B8"
+COLOR_ALIASES = {
+    "black": "#000000",
+    "blue": "#0000FF",
+    "cyan": "#00FFFF",
+    "green": "#008000",
+    "grey": "#808080",
+    "gray": "#808080",
+    "orange": "#FFA500",
+    "pink": "#FFC0CB",
+    "purple": "#800080",
+    "red": "#FF0000",
+    "trans-blue": DEFAULT_NEGATIVE_COLOR,
+    "trans-pink": DEFAULT_POSITIVE_COLOR,
+    "transgender-blue": DEFAULT_NEGATIVE_COLOR,
+    "transgender-pink": DEFAULT_POSITIVE_COLOR,
+    "white": "#FFFFFF",
+    "yellow": "#FFFF00",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -57,6 +77,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--chimerax-bin", help="Path to ChimeraX executable.")
     parser.add_argument("--recipe", help="Custom Multiwfn stdin recipe.")
     parser.add_argument("--isovalue", default="0.03", help="Orbital isosurface value in a.u.")
+    parser.add_argument(
+        "--negative-color",
+        default=DEFAULT_NEGATIVE_COLOR,
+        help="Color for negative-valued MO regions. Accepts #RRGGBB, R,G,B, or a common color name.",
+    )
+    parser.add_argument(
+        "--positive-color",
+        default=DEFAULT_POSITIVE_COLOR,
+        help="Color for positive-valued MO regions. Accepts #RRGGBB, R,G,B, or a common color name.",
+    )
     parser.add_argument("--front-axis", help="Manual front view axis: x, -y, z, or vector a,b,c.")
     parser.add_argument("--side-axis", help="Manual side view axis: x, -y, z, or vector a,b,c.")
     parser.add_argument("--width", type=int, default=2400)
@@ -348,6 +378,44 @@ def make_outdir(args: argparse.Namespace) -> Path:
 
 def write_text(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
+
+
+def parse_color(value: str) -> tuple[float, float, float]:
+    raw = value.strip()
+    named = COLOR_ALIASES.get(raw.lower())
+    if named:
+        raw = named
+    if re.fullmatch(r"#?[0-9A-Fa-f]{6}", raw):
+        hex_value = raw[1:] if raw.startswith("#") else raw
+        return tuple(int(hex_value[i : i + 2], 16) / 255 for i in (0, 2, 4))
+    parts = [part.strip() for part in raw.split(",")]
+    if len(parts) == 3:
+        channels = [float(part) for part in parts]
+        if any(channel < 0 for channel in channels):
+            raise ValueError(f"Color channels must be non-negative: {value}")
+        if any(channel > 1 for channel in channels):
+            if any(channel > 255 for channel in channels):
+                raise ValueError(f"RGB color channels must be <= 255: {value}")
+            channels = [channel / 255 for channel in channels]
+        return tuple(channels)
+    raise ValueError(f"Unsupported color value: {value}")
+
+
+def rgb_to_hex(rgb: tuple[float, float, float]) -> str:
+    return "#" + "".join(f"{round(channel * 255):02X}" for channel in rgb)
+
+
+def format_rgb(rgb: tuple[float, float, float]) -> str:
+    return " ".join(f"{channel:.3f}" for channel in rgb)
+
+
+def render_colors(args: argparse.Namespace) -> dict:
+    negative = parse_color(args.negative_color)
+    positive = parse_color(args.positive_color)
+    return {
+        "negative": {"input": args.negative_color, "hex": rgb_to_hex(negative), "rgb": negative},
+        "positive": {"input": args.positive_color, "hex": rgb_to_hex(positive), "rgb": positive},
+    }
 
 
 def orbital_list_for_multiwfn(orbitals: list[dict]) -> str:
@@ -767,6 +835,9 @@ def write_vmd_script(
     script = outdir / f"render_{safe}_{view_name}.tcl"
     iso = args.isovalue
     matrix = matrix_tcl(view["matrix"])
+    colors = render_colors(args)
+    negative_rgb = format_rgb(tuple(colors["negative"]["rgb"]))
+    positive_rgb = format_rgb(tuple(colors["positive"]["rgb"]))
     lines = [
         "display projection Orthographic",
         "display depthcue off",
@@ -774,8 +845,8 @@ def write_vmd_script(
         "color Display Background white",
         "display ambientocclusion on",
         "display shadows on",
-        "color change rgb 0 0.100 0.320 0.820",
-        "color change rgb 1 0.940 0.480 0.050",
+        f"color change rgb 0 {negative_rgb}",
+        f"color change rgb 1 {positive_rgb}",
         "material change ambient AOShiny 0.25",
         "material change diffuse AOShiny 0.65",
         "material change specular AOShiny 0.20",
@@ -838,6 +909,9 @@ def write_chimerax_script(
     safe = orbital["safe"]
     png = outdir / f"{safe}_{view_name}.png"
     script = outdir / f"render_{safe}_{view_name}.cxc"
+    colors = render_colors(args)
+    negative_hex = colors["negative"]["hex"]
+    positive_hex = colors["positive"]["hex"]
     lines = [
         "set bgColor white",
         "graphics silhouettes true",
@@ -852,7 +926,7 @@ def write_chimerax_script(
     lines.append(f"open {cube}")
     lines.extend(
         [
-            f"volume {cube_model} level -{args.isovalue} color dodger blue level {args.isovalue} color orange step 1",
+            f"volume {cube_model} level -{args.isovalue} color {negative_hex} level {args.isovalue} color {positive_hex} step 1",
             "hide axes",
             "view",
         ]
@@ -1047,6 +1121,7 @@ def main() -> int:
         views_placeholder_error = None
         parse_axis(args.front_axis)
         parse_axis(args.side_axis)
+        colors = render_colors(args)
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -1093,6 +1168,7 @@ def main() -> int:
         "parameters": {
             "renderer": args.renderer,
             "isovalue": args.isovalue,
+            "colors": colors,
             "front_axis": args.front_axis,
             "side_axis": args.side_axis,
             "width": args.width,
