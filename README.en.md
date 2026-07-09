@@ -179,6 +179,43 @@ Common options:
 - `--cores 8 --memory 32GB`: set CPU cores and total job memory. ORCA `%maxcore` is computed automatically.
 - `--no-multiwfn`: inject geometry with local templates only, useful for quick checks or when Multiwfn is unavailable.
 
+### Use aromatic-skill in Codex
+
+```text
+Use $aromatic-skill --aromatic. SMILES is c1ccccc1. First explain the supported aromaticity methods, then prepare the Gaussian NMR two-stage workflow for NICS-1D.
+```
+
+### Run the aromatic pipeline directly
+
+Write a Multiwfn aromaticity overview and dry-run plan:
+
+```bash
+python3 skills/aromatic-skill/scripts/aromatic_pipeline.py \
+  --aromatic \
+  --explain \
+  --workdir .
+```
+
+Prepare a HOMA dry run for benzene:
+
+```bash
+python3 skills/aromatic-skill/scripts/aromatic_pipeline.py \
+  --aromatic \
+  --method homa \
+  --smiles 'c1ccccc1' \
+  --charge 0 \
+  --multiplicity 1 \
+  --ring-atoms 1-6
+```
+
+Common options:
+
+- `--method all|homa|bird|homac|homer|mcbo|mcbo-nao|av1245|icss|nics-zz|nics-1d|nics-2d|elf-lol-pi|pdi|flu|flu-pi|plr|ita|ring-cp|lolipop`: choose an aromaticity method.
+- `--ring-atoms 1-6`: confirm ring atom order; multi-ring systems are never selected silently.
+- `--pi-orbitals 17,20-22`: specify pi orbitals for FLU-pi, ELF/LOL-pi, and LOLIPOP.
+- `--gaussian-output NICS_1D.out`: resume NICS/ICSS post-processing after the user runs Gaussian NMR/Bq jobs.
+- `--execute`: run Multiwfn only when the recipe has no placeholders and the input file is concrete. Dry run is the default.
+
 ### Use the MO skill in Codex
 
 ```text
