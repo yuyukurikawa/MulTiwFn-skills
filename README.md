@@ -120,10 +120,87 @@ python3 esp-surface-skill/scripts/esp_pipeline.py \
 | Skill | 触发方式 | 适合任务 | 主要输出 |
 | --- | --- | --- | --- |
 | `input-skill` | SMILES、Gaussian input、ORCA input、`--smiles` | 从 SMILES 生成 3D 结构，询问缺失参数，并基于精选 benchmark 文献库推荐方法/基组，按需输出 Gaussian、ORCA 或二者的输入文件 | `structure.xyz`、选中的 `<name>.gjf`/`<name>.inp`、`recommendation.md`、`manifest.json` |
+| `aromatic-skill` | `--aromatic`、aromaticity、NICS、ICSS、HOMA、FLU、PDI、MCI、LOLIPOP | 介绍并准备 Multiwfn 支持的芳香性/离域性分析；必要时调用 input-skill 生成 Gaussian NMR 模板，并在用户提供输出后继续后处理 | `method_overview.md`、`aromatic_plan.md`、`aromatic_summary.md`、`aromatic_results.json`、`manifest.json`、Multiwfn recipe |
 | `esp-surface-analysis` | `--ESP`、ESP、MEP、静电势表面 | 从 `.fchk`、`.molden`、`.wfn`、`.wfx`、cube 等文件生成 ESP 着色分子表面 | `density.cub`、`totesp.cub`、渲染脚本、`esp_vmd.png` 或 ChimeraX PNG、`manifest.json` |
 | `molecular-orbital-visualization` | `--MO`、HOMO、LUMO、分子轨道、MO cube | 生成指定轨道的 cube，并交付每个轨道的正视图和侧视图 | `<orbital>.cub`、`<orbital>_front.png`、`<orbital>_side.png`、渲染脚本、`summary.md`、`manifest.json` |
 
 ## 快速使用
+
+### 在 Codex 中调用 input-skill
+
+```text
+Use $input-skill，SMILES is c1ccccc1，task is opt-freq，cores 4，memory 8GB，charge 0，multiplicity 1。请先问我要 Gaussian、ORCA 还是两者都生成。
+```
+
+如果 prompt 里缺少 `SMILES`、任务类型、核心数、总内存、电荷、自旋多重度或输出程序，skill 会先补问，再写入最终文件。
+
+### 直接运行 input pipeline
+
+交互式运行会逐项询问缺失信息，包括只生成 Gaussian、只生成 ORCA，还是两者都生成：
+
+```bash
+python3 skills/input-skill/scripts/input_pipeline.py --interactive
+```
+
+非交互式运行也可以显式指定输出程序：
+
+```bash
+python3 skills/input-skill/scripts/input_pipeline.py \
+  --smiles 'c1ccccc1' \
+  --task opt-freq \
+  --cores 4 \
+  --memory 8GB \
+  --charge 0 \
+  --multiplicity 1 \
+  --program both \
+  --name benzene
+```
+
+常用参数：
+
+- `--setup`：安装 RDKit 到 `skills/input-skill/.venv`。
+- `--interactive`：让 pipeline 询问缺失输入；适合从 SMILES 快速搭建一次计算。
+- `--program gaussian|orca|both`：选择只生成 Gaussian、只生成 ORCA 或二者；交互模式省略时会询问，非交互模式省略时默认 `both`。
+- `--task sp|opt|freq|opt-freq|tddft|nmr|interaction-sp|high-accuracy-sp`：选择计算任务类型。
+- `--cores 8 --memory 32GB`：指定核心数和总内存；ORCA 会自动换算 `%maxcore`。
+- `--no-multiwfn`：只用本地模板注入几何，适合快速检查或 Multiwfn 不可用时生成草稿。
+
+### 在 Codex 中调用 aromatic-skill
+
+```text
+Use $aromatic-skill --aromatic，SMILES is c1ccccc1。先介绍支持的芳香性分析方法，然后为 NICS-1D 准备 Gaussian NMR 两阶段流程。
+```
+
+### 直接运行 aromatic pipeline
+
+先输出 Multiwfn 芳香性方法总览和 dry-run 计划：
+
+```bash
+python3 skills/aromatic-skill/scripts/aromatic_pipeline.py \
+  --aromatic \
+  --explain \
+  --workdir .
+```
+
+为苯准备 HOMA dry-run：
+
+```bash
+python3 skills/aromatic-skill/scripts/aromatic_pipeline.py \
+  --aromatic \
+  --method homa \
+  --smiles 'c1ccccc1' \
+  --charge 0 \
+  --multiplicity 1 \
+  --ring-atoms 1-6
+```
+
+常用参数：
+
+- `--method all|homa|bird|homac|homer|mcbo|mcbo-nao|av1245|icss|nics-zz|nics-1d|nics-2d|elf-lol-pi|pdi|flu|flu-pi|plr|ita|ring-cp|lolipop`：选择芳香性分析方法。
+- `--ring-atoms 1-6`：确认环原子顺序；多环体系不会静默默认选择。
+- `--pi-orbitals 17,20-22`：为 FLU-pi、ELF/LOL-pi、LOLIPOP 指定 π 轨道。
+- `--gaussian-output NICS_1D.out`：用户完成 Gaussian NMR/Bq 任务后恢复 NICS/ICSS 后处理。
+- `--execute`：仅当 recipe 无占位符且输入文件明确时调用 Multiwfn；默认只生成计划和 recipe。
 
 ### 在 Codex 中调用 MO skill
 
@@ -134,7 +211,7 @@ Use $molecular-orbital-visualization --MO HOMO,LUMO --homo 21，input file is be
 ### 直接运行 MO pipeline
 
 ```bash
-python3 orb-visualize-skill/scripts/mo_pipeline.py \
+python3 skills/orb-visualize-skill/scripts/mo_pipeline.py \
   --MO HOMO,LUMO \
   --homo 21 \
   --input benzene.molden.input \
@@ -158,7 +235,7 @@ Use $esp-surface-analysis --ESP，input file is benzene.molden.input
 ### 直接运行 ESP pipeline
 
 ```bash
-python3 esp-surface-skill/scripts/esp_pipeline.py \
+python3 skills/esp-surface-skill/scripts/esp_pipeline.py \
   --ESP \
   --input benzene.molden.input \
   --execute
