@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aromaticity Analysis"
+  short_description: "Multiwfn aromaticity workflows"
+  default_prompt: "Use $aromatic-skill --aromatic to explain available aromaticity methods and prepare the requested Multiwfn analysis."
